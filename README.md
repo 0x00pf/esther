@@ -12,6 +12,8 @@ I'm thinking on smartphones, routers, or other devices that usually have heavily
 
 So I come up with the idea of coding a native enumeration tool written in C that can be natively run on any device
 
+_Actually, this is just an excuse to learn how all those tools to extract information from a system work_
+
 # Features
 
 Not much yet:
