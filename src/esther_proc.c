@@ -40,8 +40,10 @@ static int
 scan_proc (E_STATE *_st)
 {
   struct dirent **namelist;
-  int             n, plen, n_proc = 0;
+  int             n, k, plen, n_proc = 0;
   char            *path = "/proc/";
+  char           *fields[3] = {"Name:", "Uid:", NULL};
+  char           *res[3] = {NULL, NULL, NULL};
   
   if ((n = scandir (path, &namelist, NULL, alphasort)) < 0)
     {
@@ -55,7 +57,8 @@ scan_proc (E_STATE *_st)
       while (n--)
 	{
 	  // Check for interesting permissions
-	  char *fname, *proc_name = NULL;
+	  char *fname;
+	  char *cmd_line = NULL;
 	  int  flen = plen + strlen (namelist[n]->d_name) + 4 + strlen ("cmdline");
 
 	  // Skip current and father
@@ -66,13 +69,40 @@ scan_proc (E_STATE *_st)
 	  memset (fname, 0, flen);
 	  // FIXME: use status file to retrieve process name and user
 	  snprintf (fname, flen, "%s/%s/cmdline", path, namelist[n]->d_name);
-	  proc_name = rpo (fname);
-	  if (proc_name)
-	    printf ("[%5s] %s\n", namelist[n]->d_name, proc_name);
+	  cmd_line = rpo (fname);
+	  // Get Name and UID
+	  snprintf (fname, flen, "%s/%s/status", path, namelist[n]->d_name);
+	  if ((k = dump_fields (fname, fields, res)) < 0)
+	    {
+	      if (cmd_line)
+		printf ("[%5s] %s\n", namelist[n]->d_name, cmd_line);
+	      else
+		printf ("[%5s] N/A\n", namelist[n]->d_name);
+	    }
 	  else
-	    printf ("[%5s] N/A\n", namelist[n]->d_name);
-
-	  free (proc_name);
+	    {
+	      int uid[4];
+	      char mine[16];
+	      
+	      sscanf (res[1], "%d %d %d %d",
+		      &uid[0], &uid[1], &uid[2], &uid[3] );
+	      if (uid[0] == _st->uid)
+		strcpy (mine, "<MINE> ");
+	      else if (uid[0] == 0)
+		strcpy (mine, "<ROOT> ");
+	      else
+		strcpy (mine, "<OTHER>");
+	      // TODO: Check for socket files under /proc/PID/fd
+	      //       Identify active connections
+	      //       List of sockets on /proc/net/tcp|udp
+	      //       Use inode field from /proc/net + stat to map to process???
+	      printf ("[%5s] %s %20s (UID: R:%5d E:%5d SS:%5d FS:%5d) (%s)\n",
+		      namelist[n]->d_name, mine, res[0],
+		      uid[0], uid[1], uid[2], uid[3],
+		      cmd_line ? cmd_line : "N/A" );
+	    }
+	  for (;k>=0; k--) if (res[k]) free (res[k]);
+	  free (cmd_line);
 	  free (namelist[n]);
 	  n_proc++;
 	  usleep (0);

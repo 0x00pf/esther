@@ -45,7 +45,8 @@ system_info (E_STATE *_st)
   printf ("Operating System : %s\n", PON(un.sysname));
   printf ("Host/Node name   : %s\n", PON(un.nodename));
   printf ("Release          : %s\n", PON(un.release));
-  printf ("Machine          : %s\n", PON(un.version));
+  printf ("Machine          : %s\n", PON(un.machine));
+  printf ("Version          : %s\n", PON(un.version));
 #ifdef _GNU_SOURCE
   printf ("NIS/YP Domain    : %s\n", PON(un.domainname));
 #endif
@@ -54,7 +55,7 @@ system_info (E_STATE *_st)
    * different of the hostname set with sethostname
    */
   gethostname (name, HOST_NAME_MAX);
-  printf ("SetHostname name : %s\n", name);
+  printf ("GetHostname name : %s\n", name);
   /* read /proc/version... compiler version and others */
   tmp = rpo ("/proc/version");
   printf ("/proc/version    : %s\n", PON(tmp));

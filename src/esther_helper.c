@@ -42,12 +42,12 @@ rpo (char *path)
       fprintf (stderr, "- Cannot open file '%s'\n", path);
       return NULL;
     }
-  if ((str = malloc (4096)) == NULL)
+  if ((str = malloc (8192)) == NULL)
     {
       fprintf (stderr, "- Cannot allocate internal buffer\n");
       goto rpo_exit;
     }
-  if (fread (str, 1, 4096, f) == 0)
+  if (fread (str, 1, 8192, f) == 0)
     {
       //fprintf (stderr, "- Cannot read data from file '%s'\n", path);
       free (str);
@@ -118,4 +118,41 @@ re_cat (char *path, char *pat)
       free (namelist);
     }
   return 0;
+}
+
+char *
+e_trim (char *c)
+{
+  while (*(c++) == ' ');
+  return c;
+}
+
+// Dump multiple fields from a file
+// res array should be initialised
+int
+dump_fields (char *path, char *pat[], char *res[])
+{
+  FILE *f;
+  char line[4096], *aux;
+  int  i, cnt = 0;
+
+  if (!res) return -1;
+  if ((f = fopen (path, "rt")) == NULL)
+    {
+      fprintf (stderr, "- Cannot open file '%s'\n", path);
+      puts ("--[ERROR]--------------------");
+      return -1;
+    }
+  while (!feof (f))
+    {
+      memset (line, 0, 4096);
+      fgets (line, 4096, f);
+      line[strlen(line) - 1] = 0;
+      // Check for patterns
+      for (i = 0; pat[i]; i++)
+	if ((aux = strstr(line, pat[i])))
+	  res[cnt++] = strdup (e_trim (aux + strlen(pat[i])));
+    }
+  fclose (f);
+  return cnt;
 }

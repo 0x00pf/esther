@@ -29,7 +29,7 @@ extern "C" {
   char *rpo (char *path);
   int  cat (char *path);
   int  re_cat (char *path, char *pat);
-
+  int  dump_fields (char *path, char *pat[], char *res[]);
 #ifdef __cpluslus
 }
 #endif

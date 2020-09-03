@@ -20,10 +20,26 @@
 
 #include "esther_net.h"
 
+/* Let's use NETLINK to get network information (man 7 netlink)*/
+#include <asm/types.h>
+#include <sys/socket.h>
+#include <linux/netlink.h>
+
+
 void *
 net_info (E_STATE *_st)
 {
+  int  s;
+  struct nlmsghdr nlmsg;
+  
   puts ("==[Retrieving Network Information]==========================");
+
+  if ((s = socket (AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC, NETLINK_ROUTE)) < 0)
+    {
+      perror ("socket(NETLINK):");
+      return NULL;
+    }
+  close (s);
   puts ("** Not yet implemented");
   puts ("============================================================");
   return NULL;

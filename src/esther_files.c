@@ -25,10 +25,11 @@
 
 #include <unistd.h>      // gethostname, getuid, fstat
 
-#include <dirent.h>      // scandir
+#include <sys/types.h>    // opendir
+#include <dirent.h>
+
 #include <sys/types.h>   // getuid, fstat
 #include <sys/stat.h> 
-//#include <sys/utsname.h> // uname
 
 #include "esther_helper.h"
 #include "esther_state.h"
@@ -38,49 +39,64 @@
 static int
 re_find (char *path, char *pat[], E_STATE *_st)
 {
-  struct dirent **namelist;
-  int             n, plen;
-
+  DIR            *dir;
+  struct dirent  *dire;
+  int             lpath;
+  
   printf ("--> Looking into '%s'..\n", path);
-  if ((n = scandir (path, &namelist, NULL, alphasort)) < 0)
+  if ((dir = opendir (path)) < 0)
     {
-      // Do not show Permission denied error
-      if (errno != EACCES) perror ("scandir:");
+      perror ("opendir:");
       return 0;
     }
-  else
+  lpath = strlen (path);
+  
+  while ((dire = readdir (dir)))
     {
-      plen = strlen (path);
-      while (n--)
+      struct stat st;
+      int         lfname;
+      char        *fname;
+
+      if (!strcmp (dire->d_name, ".")) continue;
+      if (!strcmp (dire->d_name, "..")) continue;
+    
+      lfname = lpath + strlen (dire->d_name) + 2;
+      fname = malloc (lfname);
+      memset (fname, 0, lfname);
+      snprintf (fname, lfname, "%s/%s", path, dire->d_name);
+      
+      if ((lstat (fname, &st)) < 0)
 	{
-	  // Only dump Regular files and links
-	  // FIXME: Use stat... dirent struct does not have to provide d_type
-	  //        Just shuffle the code below
-	  if (namelist[n]->d_type != DT_REG &&
-	      namelist[n]->d_type != DT_LNK) continue;
-	  // FIXME: Make it recursive
-
-	  int c = 0;
-	  while (pat[c])
-	    {
-	      if (strstr (namelist[n]->d_name, pat[c]))
-		{
-		  printf ("FOUND: %s/%s\n", path, namelist[n]->d_name);
-
-		}
-	      c++;
-	    }
-	  free (namelist[n]);
+	  perror ("lstat:");
+	  continue;
 	}
-      free (namelist);
+      free (fname);
+      
+      if ((st.st_mode & S_IFMT) == S_IFREG &&
+	  (st.st_mode & S_IFMT) == S_IFLNK) continue;
+      
+      int c = 0;
+      while (pat[c])
+	{
+	  if (strstr (dire->d_name, pat[c]))
+	    {
+	      printf ("FOUND: %s/%s\n", path, dire->d_name);
+	    }
+	  c++;
+	}
+      
     }
+  if (errno != 0)  perror ("readir:");
+
+  closedir (dir);
   return 0;
 }
 
-
+#ifdef USE_SCANDIR
 static int
 find_others (char *path, E_STATE *_st)
 {
+      
   struct dirent **namelist;
   int             n, plen;
   
@@ -153,7 +169,90 @@ find_others (char *path, E_STATE *_st)
     }
   return 0;
 }
+#endif
 
+
+static int
+find_others (char *path, E_STATE *_st)
+{
+  DIR            *dir;
+  struct dirent  *dire;
+  int             plen;
+
+  printf ("--> Looking into '%s'..\n", path);
+  if ((dir = opendir (path)) < 0)
+    {
+      perror ("opendir:");
+      return 0;
+    }
+
+  plen = strlen (path);  
+  while ((dire = readdir (dir)))
+    {
+      // Check for interesting permissions
+      struct stat st;
+      char *fname;
+      int  flag, flen = plen + strlen (dire->d_name) + 2;
+
+      // Skip current and father
+      if (!strcmp (dire->d_name, ".")) continue;
+      if (!strcmp (dire->d_name, "..")) continue;
+      
+      fname = malloc (flen);
+      memset (fname, 0, flen);
+      snprintf (fname, flen, "%s/%s", path, dire->d_name);
+	  
+
+      flag = 0;
+      if (stat (fname, &st) >= 0)
+	{
+	  /* If it is a directory follow recursively */
+	  if (S_ISDIR(st.st_mode))
+	    {
+	      find_others (fname, _st);
+	    }
+	  
+	  if (st.st_mode & S_ISUID)
+	    {
+	      printf ("%s", "SUID ");
+	      flag ++;;
+	    }
+	  if (st.st_mode & S_ISGID)
+	    {
+	      printf ("%s", "SGID ");
+	      flag++;
+	    }
+	  
+	  if ((st.st_mode & S_IWOTH) &&
+	      (!S_ISDIR(st.st_mode)))
+	    {
+	      if (st.st_mode & S_IXOTH)
+		{
+		  printf ("%s", "WWR_EXE ");
+		  flag++;
+		}
+	      else
+		{
+		  printf ("%s", "WWR ");
+		  flag++;
+		}
+	    }
+	  
+	  if (flag) printf (": %s\n", fname);
+	}
+      
+      free (fname);
+      usleep (0);
+    }
+  if (errno != 0) perror ("readir:");
+  closedir (dir);
+  
+  return 0;
+}
+
+
+ 
+ 
 
 void *
 files_info (E_STATE *_st)

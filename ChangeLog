@@ -1,3 +1,6 @@
 
+Tue Jul 14 16:48:14 CEST 2020
+	* Updated file scaning functions to use POSIX opendir/readir instead of scandir
+
 Tue Dec 18 14:23:46 CET 2018
 	* Project Creation. Autools stuff

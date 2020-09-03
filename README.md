@@ -26,6 +26,7 @@ Not much yet:
 * Process `/etc/group`: Shows `adm` and `sudo` group users 
 * Search for standard compilers/interpreters
 * Search for SUID, SGID, World Writable and World Writable + Executable files
+* Dump processes from `/proc`. Shows process name, owner and command-line
 
 
 # Dependencies
