@@ -21,11 +21,194 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <unistd.h>      // gethostname, getuid, fstat
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <unistd.h>
+#include "config.h"
+
+
+
+#include <time.h>
+#include <utmp.h>
 
 #include "esther_helper.h"
 #include "esther_state.h"
 
+
+#ifdef HAVE_PWD_H
+#include <pwd.h>
+#endif
+
+#define LASTLOG_FILE "/var/log/lastlog"
+
+#ifndef UTMP_FILE
+#define UTMP_FILE "/var/run/utmp"
+#endif
+
+#ifndef WTMP_FILE
+#define WTMP_FILE "/var/log/wtmp"
+#endif
+
+#define LASTLOG_BLOCK 0x124
+
+typedef struct latlost_ent {
+  int           unk;
+  char          tty[32];
+  char          hostname[256];
+  unsigned char pad[4891];
+} LASTLOGENT;
+
+
+#ifndef HAVE_PWD_H
+#error "pwd.h not found.... getpwuid not yet implemented"
+// Add alternative implementation of getpwuid here?
+// XXX: Find out availability of the function. 
+#endif
+
+int
+plast (E_STATE *_st)
+{
+  LASTLOGENT ent;
+  char       uname[1024];
+  FILE       *f;
+  long       off;
+  int        id;
+  
+  puts ("--[Last log users (lastlog)]------------------------\n");
+  if ((f = fopen (LASTLOG_FILE, "rb")) == NULL)
+    {
+      fprintf (stderr, "- Cannot open file %s\n", LASTLOG_FILE);
+      puts ("--[ERROR]--------------------");
+      return -1;
+      
+    }
+  
+  id = 0;
+  while (!feof (f))
+    {
+      off = id * LASTLOG_BLOCK;
+      fseek (f, off, SEEK_SET);
+      if ((fread (&ent, LASTLOG_BLOCK, 1,f)) <=0 )  break;
+      
+      time_t v = (time_t)ent.unk;
+      
+      struct passwd *r;
+      if ((r = getpwuid (id)) == NULL) 	snprintf (uname, 1024, "%d", id);
+      else strncpy (uname, r->pw_name, 1024);
+      
+    
+      if (ent.unk != 0)
+	printf ("%s\t\t%8s\t%s\t%s",
+		uname, ent.tty, ent.hostname[0] ? ent.hostname : "\t", ctime(&v));
+      id++;
+      
+    }
+  fclose (f);
+  
+  return 0;
+}
+
+int logged (E_STATE *_st)
+{
+  FILE *f;
+  struct utmp ut;
+  
+  // Process uTMP
+  puts ("--[Current Users (w)]------------------------\n");
+  if ((f = fopen (UTMP_FILE, "rb")) == NULL)
+    {
+      fprintf (stderr, "- Cannot open file %s\n", LASTLOG_FILE);
+      puts ("--[ERROR]--------------------");
+      return -1;
+    }
+  
+  while (!feof (f))
+    {
+      if ((fread (&ut, sizeof (struct utmp), 1, f)) <= 0) break;
+
+      int   l = ut.ut_host[0] ? strlen (ut.ut_host): 8; // Poor's man formatting
+
+      /* For current users we will like to know IDLE time as provided by w */
+      char   t[1024],_pty[1024];
+      time_t t1 = ut.ut_tv.tv_sec;
+      
+      ctime_r (&t1,t);   /* Generate string for time field */
+      t[strlen(t) - 1 ] =0;
+
+      /* Get stat from associated tty... that is the last time the terminal was used */
+      snprintf (_pty, 1024, "/dev/%s", ut.ut_line);
+      
+      struct stat st;
+      int         old,idle_t = 0;
+      /* Helper structures to human readable time differences*/
+      char        *t_unit[] = {"sec", "min", "hour", "day", "month", "year"};
+      int         t_conv[] = {60, 60, 24, 30, 12};
+      int         order = 0;
+      
+      if (stat (_pty, &st) >= 0) 
+	{
+	  idle_t = time(NULL) - st.st_atime;
+	  while (idle_t > 0)
+	    {
+	      old = idle_t;
+	      idle_t /= t_conv[order];
+
+	      order++;
+	    }
+	}
+
+      if (order > 0) order--;
+      
+      /* For each available entry....*/
+      if (ut.ut_user[0])
+	{
+	  if (old != 0) /* Only show time when there is something to show */
+	    printf ("%s\t%s%s\t%s%s\t(%7d)\t(%d %s)\n",
+		    ut.ut_user,
+		    strlen(ut.ut_user) > 7 ? "":"\t",
+		    ut.ut_line,
+		    ut.ut_host[0] ? ut.ut_host: "\t",
+		    l > 14 ? "" : ((l > 7) ? "\t" : "\t\t"),
+		    ut.ut_pid, old, t_unit[order]);
+	  else
+	    printf ("%s\t%s%s\t%s%s\t\n",
+		    ut.ut_user,
+		    strlen(ut.ut_user) > 7 ? "":"\t",
+		    ut.ut_line,
+		    ut.ut_host[0] ? ut.ut_host: "\t",
+		    l > 14 ? "" : ((l > 7) ? "\t" : "\t\t"));
+	}
+    }
+  fclose (f);
+  
+  // Process WTMP
+  puts ("--------------------------");
+  puts ("--[Last logged in users (last)]------------------------\n");
+  if ((f = fopen (WTMP_FILE, "rb")) == NULL)
+    {
+      fprintf (stderr, "- Cannot open file %s\n", LASTLOG_FILE);
+      puts ("--[ERROR]--------------------");
+      return -1;
+    }
+  while (!feof (f))
+    {
+      if ((fread (&ut, sizeof (struct utmp), 1, f)) <= 0) break;
+      char t[1024];
+      time_t t1 = ut.ut_tv.tv_sec;
+      ctime_r (&t1,t);
+      t[strlen(t) - 1 ] =0;
+      if (ut.ut_user[0])
+	printf ("%s\t\t%s\t%s\t(%7d)\t%s\n",
+		ut.ut_user, ut.ut_line, ut.ut_host, ut.ut_pid,t);
+      else
+	printf (">LOGOUT\t\t%s\t\t\t\t\t%s\n", ut.ut_line, t);
+      
+    }
+  fclose (f);
+  puts ("--------------------------");
+  return 0;
+}
 
 int
 ppass (E_STATE *_st)
@@ -34,12 +217,14 @@ ppass (E_STATE *_st)
   char line[4096];
   
   puts ("--[/etc/passwd]--------------------\n");
+  
   if ((f = fopen ("/etc/passwd", "rt")) == NULL)
     {
       fprintf (stderr, "%s", "- Cannot open file /etc/passwd'\n");
       puts ("--[ERROR]--------------------");
       return -1;
     }
+  
   while (!feof (f))
     {
       char *name, *pass, *id, *group, *trash, *shell;
@@ -47,8 +232,11 @@ ppass (E_STATE *_st)
 
       name = pass = id = group = trash = shell = NULL;
       memset (line, 0, 4096);
+      
       if (!fgets (line, 4096, f)) break;
       line[strlen(line) - 1] = 0;
+
+      // Shall we use getpwent?. This probably will work on all cases
       name = strtok (line, ":");
       if (!name) break;
       pass = strtok (NULL, ":");
@@ -69,6 +257,7 @@ ppass (E_STATE *_st)
 	{
 	  _st->uname = strdup (name);
 	  p+= sprintf (p, " - *ME* ");
+
 	}
 
       if (p != desc)
@@ -108,7 +297,9 @@ pgrp (E_STATE *_st)
       if (pass[0] != 'x') p += sprintf (p, "HASH ");
       if (group && strstr (group, _st->uname)) p+= sprintf (p, "GROUP ");
       if (!strcmp (name, "adm")) p+= sprintf (p, "ADM (%s)", group);
+      if (!strcmp (name, "admin")) p+= sprintf (p, "ADM (%s)", group);
       if (!strcmp (name, "sudo")) p+= sprintf (p, "SUDO (%s)", group);
+      if (!strcmp (name, "root")) p+= sprintf (p, "ROOT (%s)", group);
       if (!strcmp (name, "wheel")) p+= sprintf (p, "WHEEL (%s)", group);
 	  
       if (p != desc)
@@ -136,15 +327,21 @@ user_info (E_STATE *_st)
   printf ("Effective user ID  : %d\n", euid);
   printf ("Real Group  ID     : %d\n", gid);
   printf ("Effective Group ID : %d\n", egid);
-
+  // Current information
+  
+  
   // Update state
   _st->uid = uid;
   _st->gid = gid;
 
   // Process system files
+  plast (_st);
+  logged (_st);
+
   ppass (_st);
   pgrp (_st);
   
   puts ("============================================================");
+
   return NULL;
 }

@@ -16,7 +16,7 @@ dnl *
 dnl * You should have received a copy of the GNU General Public License
 dnl * along with Esther.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([esther], 0.0.1, [@0x00pico])
+AC_INIT([esther], 0.0.3, [@0x00pico])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_CONFIG_SRCDIR([src/esther.c])
@@ -26,6 +26,8 @@ AM_PROG_AR
 AC_PROG_CC
 AC_LIBTOOL_DLOPEN
 AC_PROG_LIBTOOL
+
+AC_CHECK_HEADERS([pwd.h])
 
 AC_CONFIG_HEADERS([config.h])
 

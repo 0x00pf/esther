@@ -1,4 +1,7 @@
 
+Sat Sep  5 10:32:27 CEST 2020
+	* Updated user information with lastlog, w and last like commands
+
 Tue Jul 14 16:48:14 CEST 2020
 	* Updated file scaning functions to use POSIX opendir/readir instead of scandir
 
