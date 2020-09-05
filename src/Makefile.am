@@ -20,7 +20,7 @@ bin_PROGRAMS=esther
 
 estherincludedir  = $(includedir)/esther
 estherinclude_HEADERS=esther_system.h esther_state.h esther_user.h esther_net.h esther_files.h \
-		      esther_proc.h esther_fs.c esther_helper.h
+		      esther_proc.h esther_fs.h esther_helper.h
 EXTRA_DIST=esther_system.h esther_state.h esther_user.h esther_net.h esther_files.h \
 		      esther_proc.h esther_fs.c esther_helper.h
 

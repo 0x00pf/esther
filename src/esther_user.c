@@ -61,9 +61,12 @@ typedef struct latlost_ent {
 
 
 #ifndef HAVE_PWD_H
-#error "pwd.h not found.... getpwuid not yet implemented"
-// Add alternative implementation of getpwuid here?
-// XXX: Find out availability of the function. 
+//#error "pwd.h not found.... getpwuid not yet implemented"
+// Dummy implementation of getpwuid... just return NULL so
+// uid is used instead of user name
+struct passwd *
+getpwuid(uid_t uid) { return NULL;}
+
 #endif
 
 int
@@ -354,7 +357,6 @@ user_info (E_STATE *_st)
   last (_st);
   w (_st);
 
-  exit (1);
   ppass (_st);
   pgrp (_st);
   
