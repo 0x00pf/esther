@@ -67,7 +67,7 @@ typedef struct latlost_ent {
 #endif
 
 int
-plast (E_STATE *_st)
+lastlog (E_STATE *_st)
 {
   LASTLOGENT ent;
   char       uname[1024];
@@ -109,7 +109,8 @@ plast (E_STATE *_st)
   return 0;
 }
 
-int logged (E_STATE *_st)
+int
+w (E_STATE *_st)
 {
   FILE *f;
   struct utmp ut;
@@ -182,6 +183,19 @@ int logged (E_STATE *_st)
     }
   fclose (f);
   
+ 
+  puts ("--------------------------");
+  return 0;
+}
+
+
+
+int
+last (E_STATE *_st)
+{
+  FILE *f;
+  struct utmp ut;
+   
   // Process WTMP
   puts ("--------------------------");
   puts ("--[Last logged in users (last)]------------------------\n");
@@ -209,6 +223,7 @@ int logged (E_STATE *_st)
   puts ("--------------------------");
   return 0;
 }
+
 
 int
 ppass (E_STATE *_st)
@@ -335,9 +350,11 @@ user_info (E_STATE *_st)
   _st->gid = gid;
 
   // Process system files
-  plast (_st);
-  logged (_st);
+  lastlog (_st);
+  last (_st);
+  w (_st);
 
+  exit (1);
   ppass (_st);
   pgrp (_st);
   
