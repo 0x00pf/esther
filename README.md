@@ -24,6 +24,8 @@ Not much yet:
 * Dumps current user information
 * Process `/etc/password`: Shows users with a shell, superusers and current user
 * Process `/etc/group`: Shows `adm` and `sudo` group users 
+* Shows `lastlog`, `last` and `w` output 
+* Dumps file system. Marks writable/executable folders
 * Search for standard compilers/interpreters
 * Search for SUID, SGID, World Writable and World Writable + Executable files
 * Dump processes from `/proc`. Shows process name, owner and command-line
